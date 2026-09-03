@@ -4,6 +4,118 @@ import cv2
 import numpy as np
 
 
+def contour_circularity(contour):
+    """
+    Calculate how circular a contour is.
+    Returns a value between 0 and 1.
+    """
+
+    area = cv2.contourArea(contour)
+    perimeter = cv2.arcLength(contour, True)
+
+    if area <= 0 or perimeter <= 0:
+        return 0
+
+    return (4 * np.pi * area) / (perimeter * perimeter)
+
+
+def find_best_vada_contour(contours, image_shape):
+    """
+    Choose the contour most likely to be a vada.
+
+    The score considers:
+    - contour size
+    - circularity
+    - distance from image center
+    """
+
+    image_height, image_width = image_shape[:2]
+    image_area = image_height * image_width
+
+    image_center_x = image_width / 2
+    image_center_y = image_height / 2
+
+    best_contour = None
+    best_score = -1
+
+    for contour in contours:
+
+        area = cv2.contourArea(contour)
+
+        # Ignore very small contours/noise
+        if area < image_area * 0.005:
+            continue
+
+        # Ignore contours that are almost the entire image
+        if area > image_area * 0.90:
+            continue
+
+        perimeter = cv2.arcLength(contour, True)
+
+        if perimeter <= 0:
+            continue
+
+        # Circularity: 1 = perfect circle
+        circularity = (
+            4 * np.pi * area
+        ) / (perimeter * perimeter)
+
+        circularity = max(
+            0,
+            min(1, circularity)
+        )
+
+        # Get contour center
+        moments = cv2.moments(contour)
+
+        if moments["m00"] == 0:
+            continue
+
+        contour_x = moments["m10"] / moments["m00"]
+        contour_y = moments["m01"] / moments["m00"]
+
+        # Distance from image center
+        distance = np.sqrt(
+            (contour_x - image_center_x) ** 2 +
+            (contour_y - image_center_y) ** 2
+        )
+
+        max_distance = np.sqrt(
+            image_center_x ** 2 +
+            image_center_y ** 2
+        )
+
+        center_score = 1 - (
+            distance / max_distance
+        )
+
+        center_score = max(
+            0,
+            min(1, center_score)
+        )
+
+        # Area score
+        area_ratio = area / image_area
+
+        area_score = min(
+            1,
+            area_ratio * 5
+        )
+
+        # Final "vada likelihood" score
+        vada_score = (
+            circularity * 0.50 +
+            center_score * 0.30 +
+            area_score * 0.20
+        )
+
+        if vada_score > best_score:
+            best_score = vada_score
+            best_contour = contour
+
+    return best_contour
+
+
 def analyze_image(image_bytes):
 
     # --------------------------------
@@ -16,7 +128,7 @@ def analyze_image(image_bytes):
     )
 
     image = cv2.imdecode(
-        image_array,
+        image_array, 
         cv2.IMREAD_COLOR
     )
 
@@ -26,7 +138,10 @@ def analyze_image(image_bytes):
             "message": "Could not read image"
         }
 
-    # Resize very large images
+    # --------------------------------
+    # RESIZE LARGE IMAGE
+    # --------------------------------
+
     height, width = image.shape[:2]
 
     max_size = 800
@@ -44,7 +159,7 @@ def analyze_image(image_bytes):
         )
 
     # --------------------------------
-    # CONVERT TO GRAYSCALE
+    # PREPROCESSING
     # --------------------------------
 
     gray = cv2.cvtColor(
@@ -58,15 +173,42 @@ def analyze_image(image_bytes):
         0
     )
 
+    # Improve local contrast slightly
+    clahe = cv2.createCLAHE(
+        clipLimit=2.0,
+        tileGridSize=(8, 8)
+    )
+
+    enhanced = clahe.apply(
+        blurred
+    )
+
     # --------------------------------
-    # DETECT MAIN VADA CONTOUR
+    # EDGE DETECTION
     # --------------------------------
 
     edges = cv2.Canny(
-        blurred,
-        50,
-        150
+        enhanced,
+        40,
+        130
     )
+
+    # Close small gaps in edges
+    kernel = np.ones(
+        (5, 5),
+        np.uint8
+    )
+
+    edges = cv2.morphologyEx(
+        edges,
+        cv2.MORPH_CLOSE,
+        kernel,
+        iterations=2
+    )
+
+    # --------------------------------
+    # FIND ALL CONTOURS
+    # --------------------------------
 
     contours, _ = cv2.findContours(
         edges,
@@ -77,26 +219,22 @@ def analyze_image(image_bytes):
     if not contours:
         return {
             "success": False,
-            "message": "Could not detect a vada in the image"
+            "message": "Could not detect any object in the image"
         }
 
-    # Find largest contour
-    largest_contour = max(
+    # --------------------------------
+    # FIND THE MOST LIKELY VADA
+    # --------------------------------
+
+    vada_contour = find_best_vada_contour(
         contours,
-        key=cv2.contourArea
+        image.shape
     )
 
-    area = cv2.contourArea(
-        largest_contour
-    )
-
-    # Reject extremely tiny detections
-    image_area = image.shape[0] * image.shape[1]
-
-    if area < image_area * 0.01:
+    if vada_contour is None:
         return {
             "success": False,
-            "message": "The detected vada is too small"
+            "message": "Could not confidently detect a vada"
         }
 
     # --------------------------------
@@ -110,7 +248,7 @@ def analyze_image(image_bytes):
 
     cv2.drawContours(
         mask,
-        [largest_contour],
+        [vada_contour],
         -1,
         255,
         thickness=cv2.FILLED
@@ -120,8 +258,12 @@ def analyze_image(image_bytes):
     # CIRCULARITY
     # --------------------------------
 
+    area = cv2.contourArea(
+        vada_contour
+    )
+
     perimeter = cv2.arcLength(
-        largest_contour,
+        vada_contour,
         True
     )
 
@@ -131,7 +273,9 @@ def analyze_image(image_bytes):
 
         circularity = (
             4 * np.pi * area
-        ) / (perimeter * perimeter) * 100
+        ) / (
+            perimeter * perimeter
+        ) * 100
 
         circularity = max(
             0,
@@ -139,21 +283,27 @@ def analyze_image(image_bytes):
         )
 
     # --------------------------------
-    # GET BOUNDING BOX OF VADA
+    # CROP DETECTED VADA
     # --------------------------------
 
     x, y, w, h = cv2.boundingRect(
-        largest_contour
+        vada_contour
     )
 
-    vada_gray = gray[y:y + h, x:x + w]
-    vada_mask = mask[y:y + h, x:x + w]
+    vada_gray = gray[
+        y:y + h,
+        x:x + w
+    ]
+
+    vada_mask = mask[
+        y:y + h,
+        x:x + w
+    ]
 
     # --------------------------------
     # SYMMETRY
     # --------------------------------
 
-    # Resize detected vada
     vada_resized = cv2.resize(
         vada_gray,
         (200, 200)
@@ -164,14 +314,12 @@ def analyze_image(image_bytes):
         (200, 200)
     )
 
-    # Left and right halves
     left_half = vada_resized[:, :100]
     right_half = vada_resized[:, 100:]
 
     left_mask = mask_resized[:, :100]
     right_mask = mask_resized[:, 100:]
 
-    # Flip right half
     right_half_flipped = cv2.flip(
         right_half,
         1
@@ -182,13 +330,11 @@ def analyze_image(image_bytes):
         1
     )
 
-    # Compare the two sides
     difference = cv2.absdiff(
         left_half,
         right_half_flipped
     )
 
-    # Only consider pixels inside the vada
     valid_mask = cv2.bitwise_and(
         left_mask,
         right_mask_flipped
@@ -209,7 +355,6 @@ def analyze_image(image_bytes):
         )
 
     else:
-
         symmetry = 0
 
     symmetry = max(
@@ -218,10 +363,9 @@ def analyze_image(image_bytes):
     )
 
     # --------------------------------
-    # HOLE QUALITY
+    # HOLE DETECTION
     # --------------------------------
 
-    # Threshold darker regions
     _, threshold = cv2.threshold(
         vada_gray,
         80,
@@ -229,7 +373,6 @@ def analyze_image(image_bytes):
         cv2.THRESH_BINARY_INV
     )
 
-    # Only look inside detected vada
     threshold = cv2.bitwise_and(
         threshold,
         vada_mask
@@ -257,7 +400,7 @@ def analyze_image(image_bytes):
                 contour
             )
 
-            # Ignore tiny noise
+            # Ignore noise
             if hole_area < 50:
                 continue
 
@@ -288,7 +431,6 @@ def analyze_image(image_bytes):
                 best_distance = distance
                 best_hole = contour
 
-        # Score the best central hole
         if best_hole is not None:
 
             hole_area = cv2.contourArea(
@@ -308,7 +450,6 @@ def analyze_image(image_bytes):
                     hole_perimeter ** 2
                 ) * 100
 
-                # Also reward a reasonably sized hole
                 hole_ratio = (
                     hole_area / (w * h)
                 ) * 100
@@ -332,14 +473,12 @@ def analyze_image(image_bytes):
     # CRISPINESS
     # --------------------------------
 
-    # Only analyze the detected vada
     masked_vada = cv2.bitwise_and(
         vada_gray,
         vada_gray,
         mask=vada_mask
     )
 
-    # Texture measurement
     laplacian = cv2.Laplacian(
         masked_vada,
         cv2.CV_64F
@@ -356,16 +495,13 @@ def analyze_image(image_bytes):
         )
 
     else:
-
         texture_score = 0
 
-    # Normalize texture
     texture_score = min(
         100,
         texture_score / 15
     )
 
-    # Average brightness only inside vada
     brightness_pixels = vada_gray[
         vada_mask > 0
     ]
@@ -377,10 +513,8 @@ def analyze_image(image_bytes):
         )
 
     else:
-
         brightness = 255
 
-    # Moderate browning
     browning_score = 100 - (
         brightness / 255 * 100
     )
@@ -390,7 +524,6 @@ def analyze_image(image_bytes):
         min(100, browning_score)
     )
 
-    # Final crispiness score
     crispiness = (
         texture_score * 0.65 +
         browning_score * 0.35
@@ -410,17 +543,14 @@ def analyze_image(image_bytes):
             float(circularity),
             2
         ),
-
         "symmetry": round(
             float(symmetry),
             2
         ),
-
         "holeQuality": round(
             float(hole_quality),
             2
         ),
-
         "crispiness": round(
             float(crispiness),
             2
