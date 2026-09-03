@@ -1,122 +1,89 @@
-def get_battle_analysis(stats1, stats2):
+def get_battle_analysis(vada1_score, vada2_score):
     """
-    Compare two vadas using their OpenCV analysis scores.
+    Compare two final Vada scores and decide:
+    - Winner
+    - Battle type
+    - Score difference
+    - Battle message
     """
 
-    iq1 = stats1["vadaIQ"]
-    iq2 = stats2["vadaIQ"]
+    # Convert scores to float
+    score1 = float(vada1_score)
+    score2 = float(vada2_score)
 
-    difference = abs(iq1 - iq2)
+    # Calculate difference
+    difference = round(
+        abs(score1 - score2),
+        2
+    )
 
-    # -----------------------------
-    # DECIDE WINNER
-    # -----------------------------
+    # --------------------------------
+    # TIE
+    # --------------------------------
 
-    if iq1 > iq2:
-        winner = "vada1"
+    if difference < 1:
 
-    elif iq2 > iq1:
-        winner = "vada2"
+        return {
+            "winner": "tie",
+            "battleType": "tie",
+            "difference": difference,
+            "message": (
+                "🤝 It's a perfect tie! "
+                "Both vadas came out equally crispy and dangerous."
+            )
+        }
 
-    else:
-        winner = "draw"
+    # --------------------------------
+    # CLOSE BATTLE
+    # --------------------------------
 
-    # -----------------------------
-    # BATTLE TYPE
-    # -----------------------------
+    if difference < 5:
 
-    if winner == "draw":
-
-        battle_type = "draw"
-
-        message = (
-            "🤝 The AI judge is completely confused. "
-            "Both vadas have achieved equal levels of greatness!"
+        winner = (
+            "vada1"
+            if score1 > score2
+            else "vada2"
         )
 
-    elif difference < 3:
-
-        battle_type = "photo_finish"
-
-        message = (
-            "😱 PHOTO FINISH! The difference is microscopic. "
-            "The frying pan nearly needed VAR technology!"
+        winner_name = (
+            "Vada 1"
+            if winner == "vada1"
+            else "Vada 2"
         )
 
-    elif difference < 10:
+        return {
+            "winner": winner,
+            "battleType": "close_battle",
+            "difference": difference,
+            "message": (
+                f"🔥 What a close battle! "
+                f"{winner_name} wins by only "
+                f"{difference} points!"
+            )
+        }
 
-        battle_type = "close_battle"
+    # --------------------------------
+    # CLEAR WINNER
+    # --------------------------------
 
-        message = (
-            f"⚔️ What a battle! {winner.upper()} wins, "
-            "but the loser fought bravely until the last crumb!"
-        )
+    winner = (
+        "vada1"
+        if score1 > score2
+        else "vada2"
+    )
 
-    elif difference < 20:
-
-        battle_type = "clear_winner"
-
-        message = (
-            f"🏆 The AI has spoken! {winner.upper()} takes "
-            "the crown with a strong frying performance!"
-        )
-
-    else:
-
-        battle_type = "absolute_destruction"
-
-        message = (
-            f"🔥 {winner.upper()} absolutely destroyed the competition! "
-            "Someone call the vada rescue team!"
-        )
-
-    # -----------------------------
-    # COMPARE INDIVIDUAL FEATURES
-    # -----------------------------
-
-    comparisons = {
-        "circularityWinner": compare_stat(
-            stats1["circularity"],
-            stats2["circularity"]
-        ),
-
-        "symmetryWinner": compare_stat(
-            stats1["symmetry"],
-            stats2["symmetry"]
-        ),
-
-        "holeWinner": compare_stat(
-            stats1["holeQuality"],
-            stats2["holeQuality"]
-        ),
-
-        "crispinessWinner": compare_stat(
-            stats1["crispiness"],
-            stats2["crispiness"]
-        )
-    }
+    winner_name = (
+        "Vada 1"
+        if winner == "vada1"
+        else "Vada 2"
+    )
 
     return {
         "winner": winner,
-        "battleType": battle_type,
-        "difference": round(difference, 2),
-        "message": message,
-        "comparisons": comparisons
+        "battleType": "clear_winner",
+        "difference": difference,
+        "message": (
+            f"🏆 {winner_name} takes the crown! "
+            f"It wins with a {difference}-point advantage."
+        )
     }
-
-
-def compare_stat(score1, score2):
-    """
-    Compare one feature between two vadas.
-    """
-
-    difference = abs(score1 - score2)
-
-    # Almost equal
-    if difference < 2:
-        return "draw"
-
-    if score1 > score2:
-        return "vada1"
-
-    return "vada2"

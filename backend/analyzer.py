@@ -1,43 +1,107 @@
-from scorer import calculate_vada_iq
-
 import cv2
 import numpy as np
 
 
 # --------------------------------
-# HELPER: CONTOUR CIRCULARITY
+# DECODE IMAGE
 # --------------------------------
 
-def contour_circularity(contour):
-    area = cv2.contourArea(contour)
-    perimeter = cv2.arcLength(contour, True)
+def decode_image(image_bytes):
+    """
+    Convert uploaded image bytes
+    into an OpenCV BGR image.
+    """
 
-    if area <= 0 or perimeter <= 0:
-        return 0.0
-
-    circularity = (
-        4 * np.pi * area
-    ) / (
-        perimeter * perimeter
+    image_array = np.frombuffer(
+        image_bytes,
+        dtype=np.uint8
     )
 
-    return max(0.0, min(1.0, circularity))
+    image = cv2.imdecode(
+        image_array,
+        cv2.IMREAD_COLOR
+    )
+
+    return image
 
 
 # --------------------------------
-# FIND BEST VADA CONTOUR
+# RESIZE IMAGE
 # --------------------------------
 
-def find_best_vada_contour(contours, image_shape):
+def resize_image(image, max_width=800):
     """
-    Choose the contour most likely to be the vada.
+    Resize large images while
+    maintaining aspect ratio.
     """
 
-    image_height, image_width = image_shape[:2]
-    image_area = image_height * image_width
+    height, width = image.shape[:2]
 
-    image_center_x = image_width / 2
-    image_center_y = image_height / 2
+    if width <= max_width:
+        return image
+
+    scale = max_width / width
+
+    new_width = int(width * scale)
+    new_height = int(height * scale)
+
+    return cv2.resize(
+        image,
+        (new_width, new_height),
+        interpolation=cv2.INTER_AREA
+    )
+
+
+# --------------------------------
+# DETECT VADA CONTOUR
+# --------------------------------
+
+def find_vada_contour(image):
+    """
+    Detect the most likely outer
+    contour of the vada.
+    """
+
+    gray = cv2.cvtColor(
+        image,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    blurred = cv2.GaussianBlur(
+        gray,
+        (7, 7),
+        0
+    )
+
+    edges = cv2.Canny(
+        blurred,
+        30,
+        120
+    )
+
+    kernel = np.ones(
+        (7, 7),
+        np.uint8
+    )
+
+    edges = cv2.morphologyEx(
+        edges,
+        cv2.MORPH_CLOSE,
+        kernel,
+        iterations=2
+    )
+
+    contours, _ = cv2.findContours(
+        edges,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    if not contours:
+        return None
+
+    height, width = image.shape[:2]
+    image_area = height * width
 
     best_contour = None
     best_score = -1
@@ -46,138 +110,8 @@ def find_best_vada_contour(contours, image_shape):
 
         area = cv2.contourArea(contour)
 
-        # Ignore tiny noise
-        if area < image_area * 0.005:
-            continue
-
-        # Ignore contour covering almost the entire image
-        if area > image_area * 0.90:
-            continue
-
-        circularity = contour_circularity(contour)
-
-        moments = cv2.moments(contour)
-
-        if moments["m00"] == 0:
-            continue
-
-        contour_x = moments["m10"] / moments["m00"]
-        contour_y = moments["m01"] / moments["m00"]
-
-        # Check how close the contour is to image center
-        distance = np.sqrt(
-            (contour_x - image_center_x) ** 2 +
-            (contour_y - image_center_y) ** 2
-        )
-
-        max_distance = np.sqrt(
-            image_center_x ** 2 +
-            image_center_y ** 2
-        )
-
-        center_score = 1 - (
-            distance / max_distance
-        )
-
-        center_score = max(
-            0,
-            min(1, center_score)
-        )
-
-        # Larger reasonable contours get a better score
-        area_ratio = area / image_area
-
-        area_score = min(
-            1,
-            area_ratio * 5
-        )
-
-        # Final likelihood score
-        vada_score = (
-            circularity * 0.50 +
-            center_score * 0.30 +
-            area_score * 0.20
-        )
-
-        if vada_score > best_score:
-            best_score = vada_score
-            best_contour = contour
-
-    return best_contour
-
-
-# --------------------------------
-# FIND BEST VADA HOLE
-# --------------------------------
-
-def find_best_hole(gray, vada_mask):
-    """
-    Find the most likely center hole of the vada.
-    """
-
-    blurred = cv2.GaussianBlur(
-        gray,
-        (5, 5),
-        0
-    )
-
-    # Adaptive threshold handles different lighting
-    threshold = cv2.adaptiveThreshold(
-        blurred,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        31,
-        5
-    )
-
-    # Only look inside the vada
-    threshold = cv2.bitwise_and(
-        threshold,
-        vada_mask
-    )
-
-    # Remove small noise
-    kernel = np.ones(
-        (3, 3),
-        np.uint8
-    )
-
-    threshold = cv2.morphologyEx(
-        threshold,
-        cv2.MORPH_OPEN,
-        kernel,
-        iterations=1
-    )
-
-    contours, _ = cv2.findContours(
-        threshold,
-        cv2.RETR_LIST,
-        cv2.CHAIN_APPROX_SIMPLE
-    )
-
-    height, width = gray.shape[:2]
-
-    center_x = width / 2
-    center_y = height / 2
-
-    vada_area = cv2.countNonZero(vada_mask)
-
-    best_hole = None
-    best_score = -1
-
-    for contour in contours:
-
-        area = cv2.contourArea(contour)
-
-        # Ignore tiny regions
-        if area < 30:
-            continue
-
-        area_ratio = area / max(vada_area, 1)
-
-        # Hole should not occupy too much of the vada
-        if area_ratio > 0.25:
+        # Ignore very small objects
+        if area < image_area * 0.02:
             continue
 
         perimeter = cv2.arcLength(
@@ -199,58 +133,516 @@ def find_best_hole(gray, vada_mask):
             min(1, circularity)
         )
 
-        moments = cv2.moments(contour)
+        x, y, w, h = cv2.boundingRect(
+            contour
+        )
 
-        if moments["m00"] == 0:
+        if max(w, h) == 0:
             continue
 
-        hole_x = moments["m10"] / moments["m00"]
-        hole_y = moments["m01"] / moments["m00"]
+        aspect_ratio = min(w, h) / max(w, h)
 
-        # Distance from center
+        contour_score = (
+            circularity * 0.7
+            +
+            aspect_ratio * 0.3
+        )
+
+        if contour_score > best_score:
+            best_score = contour_score
+            best_contour = contour
+
+    return best_contour
+
+
+# --------------------------------
+# CREATE VADA MASK
+# --------------------------------
+
+def create_vada_mask(image, contour):
+    """
+    Create a binary mask for the
+    detected vada.
+    """
+
+    height, width = image.shape[:2]
+
+    mask = np.zeros(
+        (height, width),
+        dtype=np.uint8
+    )
+
+    cv2.drawContours(
+        mask,
+        [contour],
+        -1,
+        255,
+        thickness=cv2.FILLED
+    )
+
+    return mask
+
+
+# --------------------------------
+# CALCULATE CIRCULARITY
+# --------------------------------
+
+def calculate_circularity(contour):
+
+    area = cv2.contourArea(
+        contour
+    )
+
+    perimeter = cv2.arcLength(
+        contour,
+        True
+    )
+
+    if perimeter <= 0:
+        return 0.0
+
+    circularity = (
+        4 * np.pi * area
+    ) / (
+        perimeter * perimeter
+    )
+
+    circularity = max(
+        0.0,
+        min(1.0, circularity)
+    )
+
+    return round(
+        circularity * 100,
+        2
+    )
+
+
+# --------------------------------
+# CALCULATE SYMMETRY
+# --------------------------------
+
+def calculate_symmetry(mask):
+    """
+    Compare left and right halves
+    of the vada mask.
+    """
+
+    height, width = mask.shape
+
+    if width < 2:
+        return 0.0
+
+    center = width // 2
+
+    left = mask[:, :center]
+
+    right = mask[:, width - center:]
+
+    right = cv2.flip(
+        right,
+        1
+    )
+
+    min_width = min(
+        left.shape[1],
+        right.shape[1]
+    )
+
+    left = left[:, :min_width]
+    right = right[:, :min_width]
+
+    difference = cv2.absdiff(
+        left,
+        right
+    )
+
+    total_pixels = difference.size
+
+    if total_pixels == 0:
+        return 0.0
+
+    difference_ratio = (
+        np.count_nonzero(difference)
+        / total_pixels
+    )
+
+    symmetry = (
+        1 - difference_ratio
+    ) * 100
+
+    symmetry = max(
+        0.0,
+        min(100.0, symmetry)
+    )
+
+    return round(
+        symmetry,
+        2
+    )
+
+
+# --------------------------------
+# FIND BEST CENTER HOLE
+# --------------------------------
+
+def find_best_hole(
+    gray,
+    vada_mask,
+    vada_contour
+):
+    """
+    Find the most likely center hole.
+    """
+
+    moments = cv2.moments(
+        vada_contour
+    )
+
+    if moments["m00"] == 0:
+        return None, 0.0
+
+    vada_x = (
+        moments["m10"]
+        / moments["m00"]
+    )
+
+    vada_y = (
+        moments["m01"]
+        / moments["m00"]
+    )
+
+    blurred = cv2.GaussianBlur(
+        gray,
+        (5, 5),
+        0
+    )
+
+    threshold = cv2.adaptiveThreshold(
+        blurred,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV,
+        31,
+        5
+    )
+
+    threshold = cv2.bitwise_and(
+        threshold,
+        vada_mask
+    )
+
+    kernel = np.ones(
+        (3, 3),
+        np.uint8
+    )
+
+    threshold = cv2.morphologyEx(
+        threshold,
+        cv2.MORPH_OPEN,
+        kernel,
+        iterations=1
+    )
+
+    contours, _ = cv2.findContours(
+        threshold,
+        cv2.RETR_LIST,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    vada_area = cv2.contourArea(
+        vada_contour
+    )
+
+    if vada_area <= 0:
+        return None, 0.0
+
+    equivalent_radius = np.sqrt(
+        vada_area / np.pi
+    )
+
+    best_hole = None
+    best_score = -1.0
+
+    for contour in contours:
+
+        area = cv2.contourArea(
+            contour
+        )
+
+        if area < 30:
+            continue
+
+        area_ratio = (
+            area / vada_area
+        )
+
+        # Ignore contours that are
+        # unrealistically large
+        if area_ratio > 0.25:
+            continue
+
+        perimeter = cv2.arcLength(
+            contour,
+            True
+        )
+
+        if perimeter <= 0:
+            continue
+
+        circularity = (
+            4 * np.pi * area
+        ) / (
+            perimeter * perimeter
+        )
+
+        circularity = max(
+            0.0,
+            min(1.0, circularity)
+        )
+
+        hole_moments = cv2.moments(
+            contour
+        )
+
+        if hole_moments["m00"] == 0:
+            continue
+
+        hole_x = (
+            hole_moments["m10"]
+            / hole_moments["m00"]
+        )
+
+        hole_y = (
+            hole_moments["m01"]
+            / hole_moments["m00"]
+        )
+
         distance = np.sqrt(
-            (hole_x - center_x) ** 2 +
-            (hole_y - center_y) ** 2
+            (hole_x - vada_x) ** 2
+            +
+            (hole_y - vada_y) ** 2
         )
 
-        max_distance = np.sqrt(
-            center_x ** 2 +
-            center_y ** 2
+        center_score = (
+            1 -
+            min(
+                1.0,
+                distance / max(
+                    equivalent_radius,
+                    1
+                )
+            )
         )
 
-        center_score = 1 - (
-            distance / max_distance
-        )
-
-        center_score = max(
-            0,
-            min(1, center_score)
-        )
-
-        # Ideal hole size is roughly 6% of vada area
+        # Ideal hole is approximately
+        # 6% of total vada area
         ideal_ratio = 0.06
 
         size_difference = abs(
             area_ratio - ideal_ratio
         )
 
-        size_score = 1 - min(
-            1,
-            size_difference / ideal_ratio
+        size_score = (
+            1 -
+            min(
+                1.0,
+                size_difference / ideal_ratio
+            )
         )
 
-        # Final hole likelihood
         hole_score = (
-            circularity * 0.45 +
-            center_score * 0.35 +
+            circularity * 0.45
+            +
+            center_score * 0.35
+            +
             size_score * 0.20
         )
 
         if hole_score > best_score:
+
             best_score = hole_score
             best_hole = contour
 
-    return best_hole, best_score
+    if best_hole is None:
+        return None, 0.0
+
+    return (
+        best_hole,
+        round(best_score * 100, 2)
+    )
+
+
+# --------------------------------
+# CALCULATE CRISPINESS
+# --------------------------------
+
+def calculate_crispiness(
+    gray,
+    vada_mask
+):
+    """
+    Estimate crispiness using
+    texture and edge density.
+    """
+
+    masked_gray = cv2.bitwise_and(
+        gray,
+        gray,
+        mask=vada_mask
+    )
+
+    laplacian = cv2.Laplacian(
+        masked_gray,
+        cv2.CV_64F
+    )
+
+    texture_value = laplacian.var()
+
+    edges = cv2.Canny(
+        masked_gray,
+        50,
+        150
+    )
+
+    edge_pixels = np.count_nonzero(
+        edges
+    )
+
+    vada_pixels = np.count_nonzero(
+        vada_mask
+    )
+
+    if vada_pixels == 0:
+        return 0.0
+
+    edge_density = (
+        edge_pixels
+        / vada_pixels
+    )
+
+    texture_score = min(
+        100,
+        (texture_value / 500) * 100
+    )
+
+    edge_score = min(
+        100,
+        (edge_density / 0.20) * 100
+    )
+
+    crispiness = (
+        texture_score * 0.6
+        +
+        edge_score * 0.4
+    )
+
+    crispiness = max(
+        0.0,
+        min(100.0, crispiness)
+    )
+
+    return round(
+        crispiness,
+        2
+    )
+
+
+# --------------------------------
+# CALCULATE VADA IQ
+# --------------------------------
+
+def calculate_vada_iq(
+    circularity,
+    symmetry,
+    hole_quality,
+    crispiness
+):
+
+    vada_iq = (
+        circularity * 0.30
+        +
+        symmetry * 0.25
+        +
+        hole_quality * 0.25
+        +
+        crispiness * 0.20
+    )
+
+    vada_iq = max(
+        0.0,
+        min(100.0, vada_iq)
+    )
+
+    return round(
+        vada_iq,
+        2
+    )
+
+
+# --------------------------------
+# CREATE DEBUG IMAGE
+# --------------------------------
+
+def create_debug_image(
+    image,
+    vada_contour,
+    hole_contour
+):
+    """
+    Draw OpenCV detection results.
+    """
+
+    debug_image = image.copy()
+
+    # Draw outer vada contour
+    if vada_contour is not None:
+
+        cv2.drawContours(
+            debug_image,
+            [vada_contour],
+            -1,
+            (0, 255, 0),
+            4
+        )
+
+        moments = cv2.moments(
+            vada_contour
+        )
+
+        if moments["m00"] != 0:
+
+            center_x = int(
+                moments["m10"]
+                / moments["m00"]
+            )
+
+            center_y = int(
+                moments["m01"]
+                / moments["m00"]
+            )
+
+            # Blue center point
+            cv2.circle(
+                debug_image,
+                (center_x, center_y),
+                8,
+                (255, 0, 0),
+                -1
+            )
+
+    # Draw detected hole
+    if hole_contour is not None:
+
+        cv2.drawContours(
+            debug_image,
+            [hole_contour],
+            -1,
+            (0, 0, 255),
+            4
+        )
+
+    return debug_image
 
 
 # --------------------------------
@@ -258,451 +650,121 @@ def find_best_hole(gray, vada_mask):
 # --------------------------------
 
 def analyze_image(image_bytes):
+    """
+    Main function used by FastAPI.
+    """
 
-    # --------------------------------
-    # READ IMAGE
-    # --------------------------------
+    try:
 
-    image_array = np.frombuffer(
-        image_bytes,
-        np.uint8
-    )
+        # 1. Decode image
+        image = decode_image(
+            image_bytes
+        )
 
-    image = cv2.imdecode(
-        image_array,
-        cv2.IMREAD_COLOR
-    )
+        if image is None:
+            return {
+                "success": False,
+                "message": "Could not decode image."
+            }
 
-    if image is None:
-        return {
-            "success": False,
-            "message": "Could not read image"
-        }
+        # 2. Resize
+        image = resize_image(
+            image
+        )
 
-    # --------------------------------
-    # RESIZE LARGE IMAGE
-    # --------------------------------
-
-    height, width = image.shape[:2]
-
-    max_size = 800
-
-    if max(height, width) > max_size:
-
-        scale = max_size / max(height, width)
-
-        image = cv2.resize(
+        # 3. Convert to grayscale
+        gray = cv2.cvtColor(
             image,
-            (
-                int(width * scale),
-                int(height * scale)
-            )
+            cv2.COLOR_BGR2GRAY
         )
 
-    # --------------------------------
-    # PREPROCESSING
-    # --------------------------------
-
-    gray = cv2.cvtColor(
-        image,
-        cv2.COLOR_BGR2GRAY
-    )
-
-    blurred = cv2.GaussianBlur(
-        gray,
-        (7, 7),
-        0
-    )
-
-    # Improve contrast
-    clahe = cv2.createCLAHE(
-        clipLimit=2.0,
-        tileGridSize=(8, 8)
-    )
-
-    enhanced = clahe.apply(
-        blurred
-    )
-
-    # --------------------------------
-    # EDGE DETECTION
-    # --------------------------------
-
-    edges = cv2.Canny(
-        enhanced,
-        40,
-        130
-    )
-
-    # Close small gaps
-    kernel = np.ones(
-        (5, 5),
-        np.uint8
-    )
-
-    edges = cv2.morphologyEx(
-        edges,
-        cv2.MORPH_CLOSE,
-        kernel,
-        iterations=2
-    )
-
-    # --------------------------------
-    # FIND CONTOURS
-    # --------------------------------
-
-    contours, _ = cv2.findContours(
-        edges,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE
-    )
-
-    if not contours:
-        return {
-            "success": False,
-            "message": "Could not detect any object"
-        }
-
-    # --------------------------------
-    # SELECT BEST VADA
-    # --------------------------------
-
-    vada_contour = find_best_vada_contour(
-        contours,
-        image.shape
-    )
-
-    if vada_contour is None:
-        return {
-            "success": False,
-            "message": "Could not confidently detect a vada"
-        }
-
-    # --------------------------------
-    # CREATE VADA MASK
-    # --------------------------------
-
-    mask = np.zeros(
-        gray.shape,
-        dtype=np.uint8
-    )
-
-    cv2.drawContours(
-        mask,
-        [vada_contour],
-        -1,
-        255,
-        thickness=cv2.FILLED
-    )
-
-    # --------------------------------
-    # CIRCULARITY
-    # --------------------------------
-
-    circularity = (
-        contour_circularity(vada_contour)
-        * 100
-    )
-
-    circularity = max(
-        0,
-        min(100, circularity)
-    )
-
-    # --------------------------------
-    # CROP THE VADA
-    # --------------------------------
-
-    x, y, w, h = cv2.boundingRect(
-        vada_contour
-    )
-
-    vada_gray = gray[
-        y:y + h,
-        x:x + w
-    ]
-
-    vada_mask = mask[
-        y:y + h,
-        x:x + w
-    ]
-
-    # --------------------------------
-    # SYMMETRY
-    # --------------------------------
-
-    vada_resized = cv2.resize(
-        vada_gray,
-        (200, 200)
-    )
-
-    mask_resized = cv2.resize(
-        vada_mask,
-        (200, 200)
-    )
-
-    left_half = vada_resized[:, :100]
-    right_half = vada_resized[:, 100:]
-
-    left_mask = mask_resized[:, :100]
-    right_mask = mask_resized[:, 100:]
-
-    right_half_flipped = cv2.flip(
-        right_half,
-        1
-    )
-
-    right_mask_flipped = cv2.flip(
-        right_mask,
-        1
-    )
-
-    difference = cv2.absdiff(
-        left_half,
-        right_half_flipped
-    )
-
-    valid_mask = cv2.bitwise_and(
-        left_mask,
-        right_mask_flipped
-    )
-
-    valid_pixels = difference[
-        valid_mask > 0
-    ]
-
-    if len(valid_pixels) > 0:
-
-        difference_score = np.mean(
-            valid_pixels
+        # 4. Detect vada contour
+        contour = find_vada_contour(
+            image
         )
 
-        symmetry = 100 - (
-            difference_score / 255 * 100
+        if contour is None:
+            return {
+                "success": False,
+                "message": (
+                    "Could not detect a vada "
+                    "in this image."
+                )
+            }
+
+        # 5. Create vada mask
+        vada_mask = create_vada_mask(
+            image,
+            contour
         )
 
-    else:
-        symmetry = 0
-
-    symmetry = max(
-        0,
-        min(100, symmetry)
-    )
-
-    # --------------------------------
-    # IMPROVED HOLE DETECTION
-    # --------------------------------
-
-    best_hole, hole_score = find_best_hole(
-        vada_gray,
-        vada_mask
-    )
-
-    hole_quality = 0
-
-    if best_hole is not None:
-
-        hole_area = cv2.contourArea(
-            best_hole
+        # 6. Calculate circularity
+        circularity = calculate_circularity(
+            contour
         )
 
-        hole_perimeter = cv2.arcLength(
-            best_hole,
-            True
-        )
-
-        hole_circularity = 0
-
-        if hole_perimeter > 0:
-
-            hole_circularity = (
-                4 * np.pi * hole_area
-            ) / (
-                hole_perimeter * hole_perimeter
-            )
-
-            hole_circularity = max(
-                0,
-                min(1, hole_circularity)
-            )
-
-        moments = cv2.moments(
-            best_hole
-        )
-
-        position_score = 0
-
-        if moments["m00"] > 0:
-
-            hole_x = moments["m10"] / moments["m00"]
-            hole_y = moments["m01"] / moments["m00"]
-
-            center_x = w / 2
-            center_y = h / 2
-
-            distance = np.sqrt(
-                (hole_x - center_x) ** 2 +
-                (hole_y - center_y) ** 2
-            )
-
-            max_distance = np.sqrt(
-                center_x ** 2 +
-                center_y ** 2
-            )
-
-            position_score = 1 - (
-                distance / max_distance
-            )
-
-            position_score = max(
-                0,
-                min(1, position_score)
-            )
-
-        # Hole size score
-        vada_area = cv2.countNonZero(
+        # 7. Calculate symmetry
+        symmetry = calculate_symmetry(
             vada_mask
         )
 
-        area_ratio = hole_area / max(
-            vada_area,
-            1
+        # 8. Detect center hole
+        hole_contour, hole_quality = find_best_hole(
+            gray,
+            vada_mask,
+            contour
         )
 
-        ideal_ratio = 0.06
-
-        size_score = 1 - min(
-            1,
-            abs(
-                area_ratio - ideal_ratio
-            ) / ideal_ratio
+        # 9. Calculate crispiness
+        crispiness = calculate_crispiness(
+            gray,
+            vada_mask
         )
 
-        # Final hole quality
-        hole_quality = (
-            hole_circularity * 0.45 +
-            position_score * 0.35 +
-            size_score * 0.20
-        ) * 100
-
-    hole_quality = max(
-        0,
-        min(100, hole_quality)
-    )
-
-    # --------------------------------
-    # IMPROVED CRISPINESS DETECTION
-    # --------------------------------
-
-    # Normalize lighting
-    clahe_crisp = cv2.createCLAHE(
-        clipLimit=2.0,
-        tileGridSize=(8, 8)
-    )
-
-    normalized_vada = clahe_crisp.apply(
-        vada_gray
-    )
-
-    vada_pixels = normalized_vada[
-        vada_mask > 0
-    ]
-
-    if len(vada_pixels) > 0:
-
-        # Texture analysis
-        laplacian = cv2.Laplacian(
-            normalized_vada,
-            cv2.CV_64F
+        # 10. Calculate Vada IQ
+        vada_iq = calculate_vada_iq(
+            circularity,
+            symmetry,
+            hole_quality,
+            crispiness
         )
 
-        texture_pixels = laplacian[
-            vada_mask > 0
-        ]
-
-        texture_variance = np.var(
-            texture_pixels
+        # 11. Create debug visualization
+        debug_image = create_debug_image(
+            image,
+            contour,
+            hole_contour
         )
 
-        texture_score = min(
-            100,
-            texture_variance / 20
+        # 12. Convert debug image to JPEG bytes
+        encode_success, buffer = cv2.imencode(
+            ".jpg",
+            debug_image
         )
 
-        # Browning analysis
-        mean_brightness = np.mean(
-            vada_pixels
-        )
+        debug_image_bytes = None
 
-        # Medium golden-brown target
-        ideal_brightness = 120
+        if encode_success:
+            debug_image_bytes = buffer.tobytes()
 
-        brightness_difference = abs(
-            mean_brightness - ideal_brightness
-        )
+        # 13. Return analysis
+        return {
+            "success": True,
 
-        browning_score = 100 - min(
-            100,
-            (brightness_difference / 120) * 100
-        )
+            "stats": {
+                "circularity": circularity,
+                "symmetry": symmetry,
+                "holeQuality": hole_quality,
+                "crispiness": crispiness,
+                "vadaIQ": vada_iq
+            },
 
-        browning_score = max(
-            0,
-            min(100, browning_score)
-        )
+            "debug_image": debug_image_bytes
+        }
 
-    else:
+    except Exception as error:
 
-        texture_score = 0
-        browning_score = 0
-
-    # Final crispiness score
-    crispiness = (
-        texture_score * 0.65 +
-        browning_score * 0.35
-    )
-
-    crispiness = max(
-        0,
-        min(100, crispiness)
-    )
-
-    # --------------------------------
-    # CREATE FINAL STATS
-    # --------------------------------
-
-    stats = {
-        "circularity": round(
-            float(circularity),
-            2
-        ),
-        "symmetry": round(
-            float(symmetry),
-            2
-        ),
-        "holeQuality": round(
-            float(hole_quality),
-            2
-        ),
-        "crispiness": round(
-            float(crispiness),
-            2
-        )
-    }
-
-    # --------------------------------
-    # CALCULATE VADA IQ
-    # --------------------------------
-
-    stats["vadaIQ"] = calculate_vada_iq(
-        stats
-    )
-
-    # --------------------------------
-    # RETURN RESULT
-    # --------------------------------
-
-    return {
-        "success": True,
-        "stats": stats
-    }
+        return {
+            "success": False,
+            "message": str(error)
+        }
