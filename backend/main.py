@@ -66,16 +66,31 @@ async def compare_vadas(
     comment1 = get_vada_comment(iq1)
     comment2 = get_vada_comment(iq2)
 
-    # Decide the winner
-    if iq1 > iq2:
-        winner = "vada1"
-        message = "🥯 Vada 1 wins the battle!"
-    elif iq2 > iq1:
-        winner = "vada2"
-        message = "🥯 Vada 2 wins the battle!"
+    difference = abs(iq1 - iq2)
+
+if iq1 > iq2:
+    winner = "vada1"
+
+    if difference < 5:
+        message = "😱 Vada 1 wins by a tiny crumb! What a close battle!"
+    elif difference < 15:
+        message = "🏆 Vada 1 wins! A solid frying-pan performance!"
     else:
-        winner = "draw"
-        message = "🤝 It's a legendary vada draw!"
+        message = "🔥 Vada 1 absolutely destroyed the competition!"
+
+elif iq2 > iq1:
+    winner = "vada2"
+
+    if difference < 5:
+        message = "😱 Vada 2 wins by a tiny crumb! What a close battle!"
+    elif difference < 15:
+        message = "🏆 Vada 2 wins! A solid frying-pan performance!"
+    else:
+        message = "🔥 Vada 2 absolutely destroyed the competition!"
+
+else:
+    winner = "draw"
+    message = "🤝 Both vadas are equally chaotic. It's a legendary draw!"
     return {
     "vada1": {
         "stats": result1["stats"],
@@ -86,5 +101,6 @@ async def compare_vadas(
         "comment": comment2
     },
     "winner": winner,
+    "difference": round(difference, 2),
     "message": message
 }
