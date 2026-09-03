@@ -1,3 +1,4 @@
+from commentator import get_vada_comment
 from analyzer import analyze_image
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,6 +63,8 @@ async def compare_vadas(
     # Get Vada IQ
     iq1 = result1["stats"]["vadaIQ"]
     iq2 = result2["stats"]["vadaIQ"]
+    comment1 = get_vada_comment(iq1)
+    comment2 = get_vada_comment(iq2)
 
     # Decide the winner
     if iq1 > iq2:
@@ -73,14 +76,15 @@ async def compare_vadas(
     else:
         winner = "draw"
         message = "🤝 It's a legendary vada draw!"
-
     return {
-        "vada1": {
-            "stats": result1["stats"]
-        },
-        "vada2": {
-            "stats": result2["stats"]
-        },
-        "winner": winner,
-        "message": message
-    }
+    "vada1": {
+        "stats": result1["stats"],
+        "comment": comment1
+    },
+    "vada2": {
+        "stats": result2["stats"],
+        "comment": comment2
+    },
+    "winner": winner,
+    "message": message
+}
