@@ -1,184 +1,570 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+* {
+  box-sizing: border-box;
 }
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #fff8ef;
+  color: #24170f;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* =========================
+   HERO
+========================= */
 
 .hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+  text-align: center;
+  padding: 70px 20px 55px;
+  background: linear-gradient(135deg, #ff9f43, #ff6b35);
+  color: white;
+  border-bottom-left-radius: 45px;
+  border-bottom-right-radius: 45px;
+  box-shadow: 0 10px 35px rgba(80, 40, 10, 0.15);
 }
 
-#center {
+.badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(40px, 7vw, 75px);
+  font-weight: 900;
+  letter-spacing: -3px;
+}
+
+.hero p {
+  font-size: 19px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+
+.hero strong {
+  color: #fff1c7;
+}
+
+/* =========================
+   MAIN
+========================= */
+
+.battle-container {
+  width: min(1100px, 92%);
+  margin: auto;
+  padding: 60px 0;
+}
+
+.section-title {
+  text-align: center;
+  margin-bottom: 35px;
+}
+
+.section-title h2 {
+  font-size: 32px;
+  margin-bottom: 8px;
+  color:black;
+}
+
+.section-title p {
+  color: #806f62;
+  margin-top: 0;
+}
+
+/* =========================
+   VADA ARENA
+========================= */
+
+.vada-arena {
+  display: grid;
+  grid-template-columns: 1fr 100px 1fr;
+  align-items: center;
+  gap: 25px;
+}
+
+.vada-card {
+  background: white;
+  padding: 25px;
+  border-radius: 25px;
+  border: 2px solid #f1dfd0;
+  box-shadow: 0 12px 30px rgba(80, 40, 10, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vada-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 18px 35px rgba(80, 40, 10, 0.13);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.player-number {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff0df;
+  color: #ef6c22;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+/* =========================
+   UPLOAD
+========================= */
+
+.upload-box {
+  height: 320px;
+  border: 3px dashed #f2c7a5;
+  border-radius: 20px;
+  background: #fffaf5;
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+.upload-box:hover {
+  border-color: #ff873d;
+  background: #fff5eb;
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+.upload-box input {
+  display: none;
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
+.upload-icon {
+  font-size: 55px;
+  margin-bottom: 15px;
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+.upload-title {
+  font-size: 20px;
+  font-weight: bold;
 }
 
-.ticks {
-  position: relative;
+.upload-subtitle {
+  margin-top: 8px;
+  color: #927d6e;
+  font-size: 14px;
+}
+
+.vada-image {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
+.file-name {
+  margin-top: 12px;
+  padding: 10px;
+  background: #fff4e8;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #765f50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================
+   VS
+========================= */
+
+.vs-container {
+  text-align: center;
+}
+
+.vs-circle {
+  width: 80px;
+  height: 80px;
+  margin: auto;
+  border-radius: 50%;
+  background: #25170f;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 23px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.vs-container span {
+  display: block;
+  font-size: 28px;
+  margin-top: 12px;
+}
+
+/* =========================
+   BATTLE BUTTON
+========================= */
+
+.battle-button-container {
+  text-align: center;
+  margin: 45px 0;
+}
+
+.battle-button {
+  border: none;
+  padding: 18px 42px;
+  border-radius: 50px;
+  background: #24170f;
+  color: white;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(36, 23, 15, 0.2);
+  transition: all 0.2s ease;
+}
+
+.battle-button:hover {
+  transform: translateY(-3px) scale(1.02);
+  background: #3a2418;
+  box-shadow: 0 15px 28px rgba(36, 23, 15, 0.25);
+}
+
+.battle-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tiny-note {
+  color: #998578;
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+/* =========================
+   LOADING
+========================= */
+
+.loading-card {
+  background: white;
+  border-radius: 25px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 12px 30px rgba(80, 40, 10, 0.08);
+  border: 2px solid #f1dfd0;
+}
+
+.spinner {
+  font-size: 55px;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
+  to {
+    transform: rotate(360deg);
   }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+}
+
+.loading-card h2 {
+  margin-top: 15px;
+}
+
+.loading-card p {
+  color: #806f62;
+  line-height: 1.8;
+}
+
+/* =========================
+   RESULTS
+========================= */
+
+.results {
+  margin-top: 70px;
+}
+
+.result-heading {
+  text-align: center;
+  margin-bottom: 35px;
+}
+
+.result-heading > span {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #ef6c22;
+}
+
+.result-heading h2 {
+  font-size: 38px;
+  margin: 10px 0;
+  color:black;
+}
+
+.result-heading p {
+  color: #806f62;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+}
+
+.result-card {
+  position: relative;
+  background: white;
+  padding: 30px;
+  border-radius: 25px;
+  border: 2px solid #eadbce;
+  box-shadow: 0 12px 30px rgba(80, 40, 10, 0.08);
+}
+
+.result-card h3 {
+  font-size: 25px;
+  margin-top: 0;
+}
+
+.winner-card {
+  border: 3px solid #ff9f43;
+  box-shadow: 0 15px 35px rgba(255, 140, 60, 0.2);
+}
+
+.winner-label {
+  position: absolute;
+  top: -14px;
+  right: 20px;
+  padding: 7px 14px;
+  background: #ff9f43;
+  color: white;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* =========================
+   AUTHENTICATION
+========================= */
+
+.authentic {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  background: #f1fbf1;
+  border-radius: 15px;
+  margin-bottom: 20px;
+}
+
+.authentic > span {
+  font-size: 25px;
+}
+
+.authentic strong {
+  display: block;
+}
+
+.authentic small {
+  display: block;
+  color: #687564;
+  margin-top: 4px;
+}
+
+/* =========================
+   CONFIDENCE
+========================= */
+
+.confidence {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eee3dc;
+}
+
+.confidence span {
+  color: #75665d;
+}
+
+.confidence strong {
+  font-size: 22px;
+}
+
+/* =========================
+   STATS
+========================= */
+
+.stat {
+  margin: 18px 0;
+}
+
+.stat-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.stat-top strong {
+  font-size: 14px;
+}
+
+.progress {
+  height: 9px;
+  background: #f0e7df;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9f43, #ff6b35);
+  border-radius: 20px;
+  transition: width 0.8s ease;
+}
+
+/* =========================
+   VADA IQ
+========================= */
+
+.iq-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 25px;
+  padding: 18px;
+  background: #25170f;
+  color: white;
+  border-radius: 16px;
+}
+
+.iq-box span {
+  font-weight: bold;
+}
+
+.iq-box strong {
+  font-size: 30px;
+  color: #ffbd72;
+}
+
+/* =========================
+   FINAL WINNER
+========================= */
+
+.final-winner {
+  margin-top: 35px;
+  padding: 50px 20px;
+  text-align: center;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #25170f, #4a2d1c);
+  color: white;
+  box-shadow: 0 20px 40px rgba(36, 23, 15, 0.2);
+}
+
+.trophy {
+  font-size: 70px;
+  animation: trophyBounce 1.5s ease-in-out infinite;
+}
+
+@keyframes trophyBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.final-winner p {
+  font-size: 12px;
+  letter-spacing: 3px;
+  font-weight: 900;
+  color: #ffbd72;
+}
+
+.final-winner h1 {
+  font-size: clamp(35px, 6vw, 60px);
+  margin: 10px 0 15px;
+}
+
+.final-winner span {
+  color: #dfcfc2;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+  text-align: center;
+  padding: 35px 20px;
+  color: #927d6e;
+  font-size: 13px;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 800px) {
+  .hero {
+    padding: 50px 20px 40px;
+  }
+
+  .hero h1 {
+    letter-spacing: -2px;
+  }
+
+  .vada-arena {
+    grid-template-columns: 1fr;
+  }
+
+  .vs-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .vs-container span {
+    margin: 0;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-box {
+    height: 260px;
   }
 }
