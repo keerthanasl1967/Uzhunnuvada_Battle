@@ -63,44 +63,57 @@ async def compare_vadas(
     # Get Vada IQ
     iq1 = result1["stats"]["vadaIQ"]
     iq2 = result2["stats"]["vadaIQ"]
+
+    # Get funny comments
     comment1 = get_vada_comment(iq1)
     comment2 = get_vada_comment(iq2)
 
+    # Calculate difference
     difference = abs(iq1 - iq2)
 
-if iq1 > iq2:
-    winner = "vada1"
+    # Decide winner
+    if iq1 > iq2:
+        winner = "vada1"
 
-    if difference < 5:
-        message = "😱 Vada 1 wins by a tiny crumb! What a close battle!"
-    elif difference < 15:
-        message = "🏆 Vada 1 wins! A solid frying-pan performance!"
+        if difference < 5:
+            message = "😱 Vada 1 wins by a tiny crumb! What a close battle!"
+        elif difference < 15:
+            message = "🏆 Vada 1 wins! A solid frying-pan performance!"
+        else:
+            message = "🔥 Vada 1 absolutely destroyed the competition!"
+
+    elif iq2 > iq1:
+        winner = "vada2"
+
+        if difference < 5:
+            message = "😱 Vada 2 wins by a tiny crumb! What a close battle!"
+        elif difference < 15:
+            message = "🏆 Vada 2 wins! A solid frying-pan performance!"
+        else:
+            message = "🔥 Vada 2 absolutely destroyed the competition!"
+
     else:
-        message = "🔥 Vada 1 absolutely destroyed the competition!"
+        winner = "draw"
+        message = "🤝 Both vadas are equally chaotic. It's a legendary draw!"
 
-elif iq2 > iq1:
-    winner = "vada2"
-
-    if difference < 5:
-        message = "😱 Vada 2 wins by a tiny crumb! What a close battle!"
-    elif difference < 15:
-        message = "🏆 Vada 2 wins! A solid frying-pan performance!"
-    else:
-        message = "🔥 Vada 2 absolutely destroyed the competition!"
-
-else:
-    winner = "draw"
-    message = "🤝 Both vadas are equally chaotic. It's a legendary draw!"
+    # Send result back to frontend
     return {
-    "vada1": {
-        "stats": result1["stats"],
-        "comment": comment1
-    },
-    "vada2": {
-        "stats": result2["stats"],
-        "comment": comment2
-    },
-    "winner": winner,
-    "difference": round(difference, 2),
-    "message": message
-}
+        "status": "success",
+        "vada1": {
+            "name": "Vada 1",
+            "filename": vada1.filename,
+            "stats": result1["stats"],
+            "comment": comment1
+        },
+        "vada2": {
+            "name": "Vada 2",
+            "filename": vada2.filename,
+            "stats": result2["stats"],
+            "comment": comment2
+        },
+        "battle": {
+            "winner": winner,
+            "difference": round(difference, 2),
+            "message": message
+        }
+    }
