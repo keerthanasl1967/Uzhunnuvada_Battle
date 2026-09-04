@@ -568,3 +568,54 @@ footer {
     height: 260px;
   }
 }
+.certificate-section {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.certificate-preview {
+  max-width: 750px;
+  margin: 20px auto;
+  padding: 45px;
+  background: #fffaf3;
+  border: 8px double #6b3218;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.certificate-preview h1 {
+  font-size: 36px;
+  margin-bottom: 20px;
+  color:black;
+}
+
+.certificate-preview h2 {
+  color: #6b3218;
+  font-size: 32px;
+}
+
+.certificate-preview p {
+  font-size: 18px;
+  margin: 14px 0;
+}
+
+.certificate-preview strong {
+  display: block;
+  font-size: 24px;
+  margin: 20px 0;
+}
+
+.certificate-button {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 30px;
+  background: #2b140b;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.certificate-button:hover {
+  transform: translateY(-2px);
+}

@@ -5,12 +5,10 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from pathlib import Path
 
-# --------------------------------
-# LOAD ENVIRONMENT VARIABLES
-# --------------------------------
-
-load_dotenv()
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 # --------------------------------
@@ -18,6 +16,7 @@ load_dotenv()
 # --------------------------------
 
 api_key = os.getenv("OPENAI_API_KEY")
+print("API Key loaded:", api_key is not None)
 
 client = None
 
@@ -25,6 +24,7 @@ if api_key:
     client = OpenAI(
         api_key=api_key
     )
+    print("Client:", client)
 
 
 # --------------------------------
@@ -128,7 +128,7 @@ Rules:
         # --------------------------------
 
         response = client.responses.create(
-            model="gpt-5.6-luna",
+            model="gpt-4.1",
             input=[
                 {
                     "role": "user",
@@ -229,28 +229,20 @@ Rules:
         }
 
     except Exception as error:
+        import traceback
 
-        print(
-            "AI ANALYSIS ERROR:",
-            str(error)
-        )
+        print("\n========== AI ERROR ==========")
+        traceback.print_exc()
+        print("==============================\n")
 
         return {
-            "success": False,
+          "success": False,
+          "visualScore": 0,
+          "appearance": "AI visual analysis could not be completed.",
+          "strengths": [],
+          "weaknesses": [],
+          "roast": "The AI judge dropped its spectacles 🤓",
+          "message": str(error)
+    }
 
-            "visualScore": 0,
-
-            "appearance": (
-                "AI visual analysis could not be completed."
-            ),
-
-            "strengths": [],
-
-            "weaknesses": [],
-
-            "roast": (
-                "The AI judge dropped its spectacles 🤓"
-            ),
-
-            "message": str(error)
-        }
+         
